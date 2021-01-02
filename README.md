@@ -1,1 +1,1 @@
-# AStarSearchAlgorithVisualized
+# AStarSearchAlgorithmVisualized

@@ -1,0 +1,291 @@
+from queue import PriorityQueue
+import pygame as pg
+pg.init()
+
+# Creating a screen and a surface
+width = 500
+height = 580
+
+screen = pg.display.set_mode((width, height))
+surface = pg.Surface((screen.get_size()))
+
+# Setting colors
+fillColor         = (231, 227, 215)
+gridColor         = (195, 183, 172)
+wallColor         = (47, 79, 79)
+startColor        = (6, 193, 244)
+targetColor       = (102, 141, 60)
+pathColor         = (255, 134, 66)
+searchInnerColor  = (244, 220, 181)
+searchBorderColor = (129, 108, 91)
+textColor         = (47, 79, 79)
+
+# Creating lists for rectangles of the grid and walls
+rects = []
+walls = []
+
+# Creating variables for start and end rectangles
+startRect = None
+targetRect = None
+
+# Drawing surface to the screen
+def draw(surface):
+    screen.blit(surface, (0, 0))
+    drawButtons()
+    pg.display.update()
+
+# Drawing rectangles to the surface to form a grid
+def drawGrid():
+    gridSize = 25
+    for i in range(gridSize):
+        for j in range(gridSize):
+            rect = pg.Rect((width / gridSize * i), ((height - (height - width)) / gridSize * j), width / gridSize, (height - (height - width)) / gridSize)
+            rects.append(rect)
+            pg.draw.rect(surface, gridColor, rect, 1)
+
+# Drawing and removing walls when mouse is clicked
+def drawWalls():
+    if pg.mouse.get_pressed(3)[0]:
+        for rect in rects:
+            if rect.collidepoint(pg.mouse.get_pos()):
+                if rect != startRect and rect != targetRect and rect not in walls:
+                    pg.draw.rect(surface, wallColor, rect)
+                    walls.append(rect)
+    if pg.mouse.get_pressed(3)[2]:
+        for i, rect in enumerate(walls):
+            if rect.collidepoint(pg.mouse.get_pos()):
+                walls.pop(i)
+                pg.draw.rect(surface, fillColor, rect)
+                pg.draw.rect(surface, gridColor, rect, 1)
+
+startSet = False
+
+# Setting and removing starting rectangle
+def setStart():
+    global startRect, startSet
+    if not startSet:
+        for rect in rects:
+            if rect.collidepoint(pg.mouse.get_pos()) and rect not in walls and rect != targetRect:
+                startSet = True
+                drawStart(rect)
+                startRect = rect
+    elif startSet:
+        pg.draw.rect(surface, fillColor, startRect)
+        pg.draw.rect(surface, gridColor, startRect, 1)
+        startSet = False
+        startRect = None
+
+# Drawing starting rectangle
+def drawStart(rect):
+    if startSet:
+        pg.draw.rect(surface, (startColor), rect)
+
+targetSet = False
+
+# Setting and removing target rectangle
+def setTarget():
+    global targetRect, targetSet
+    if not targetSet:
+        for rect in rects:
+            if rect.collidepoint(pg.mouse.get_pos()):
+                if rect not in walls and rect != startRect:
+                    targetSet = True
+                    drawTarget(rect)
+                    targetRect = rect
+    elif targetSet:
+        pg.draw.rect(surface, fillColor, targetRect)
+        pg.draw.rect(surface, gridColor, targetRect, 1)
+        targetSet = False
+        targetRect = None
+
+# Drawing target rectangle
+def drawTarget(rect):
+    if targetSet == True:
+        pg.draw.rect(surface, (targetColor), rect)
+
+# Removing walls
+def clearWalls():
+    global targetSet, walls
+    surface.fill(fillColor)
+    drawGrid()
+    drawStart(startRect)
+    drawTarget(targetRect)
+    walls = []
+
+# Removing path
+def clearPath():
+    global targetSet
+    surface.fill(fillColor)
+    drawGrid()
+    drawStart(startRect)
+    drawTarget(targetRect)
+    for rect in walls:
+        pg.draw.rect(surface, wallColor, rect)
+
+# Removing walls, path, start and end
+def clearAll():
+    global targetRect, startRect, walls, startSet, targetSet
+    surface.fill(fillColor)
+    drawGrid()
+    startRect = None
+    targetRect = None
+    startSet = False
+    targetSet = False
+    walls = []
+
+# Drawing starting, clearing buttons and instructions
+def drawButtons():
+    global startButton, clearAllButton, clearWallsButton, clearPathButton
+
+    font1 = pg.font.Font(None, 28)
+    font2 = pg.font.Font(None, 23)
+
+    startButton = pg.Rect(20, 520, width / (width / 120), (height / (height / 20)))
+    pg.draw.rect(surface, textColor, startButton, 1)
+    screen.blit(font1.render("Start", True, textColor), (28, 521))
+
+    clearAllButton = pg.Rect(20, 550, width / (width / 120), (height / (height / 20)))
+    pg.draw.rect(surface, textColor, clearAllButton, 1)
+    screen.blit(font1.render("Clear All", True, textColor), (28, 551))
+
+    clearWallsButton = pg.Rect(150, 520, width / (width / 120), (height / (height / 20)))
+    pg.draw.rect(surface, textColor, clearWallsButton, 1)
+    screen.blit(font1.render("Clear Walls", True, textColor), (158, 521))
+
+    clearPathButton = pg.Rect(150, 550, width / (width / 120), (height / (height / 20)))
+    pg.draw.rect(surface, textColor, clearPathButton, 1)
+    screen.blit(font1.render("Clear Path", True, textColor), (158, 551))
+
+    help1 = font2.render("Press s to add/remove start", True, textColor)
+    screen.blit(help1, (276, 505))
+    help2 = font2.render("Press t to add/remove target", True, textColor)
+    screen.blit(help2, (276, 522))
+    help3 = font2.render("Left-Click to add walls", True, textColor)
+    screen.blit(help3, (276, 539))
+    help4 = font2.render("Right-Click to delete walls", True, textColor)
+    screen.blit(help4, (276, 556))
+
+# Drawing path
+def drawPath(previousOnPath, current):
+    while tuple(current) in previousOnPath:
+        current = previousOnPath[tuple(current)]
+        pg.draw.rect(surface, pathColor, current)
+
+# Manhattan distance abs(x1 - x2) + abs(y1 - y2)
+def h(startLocation, endLocation):
+    return abs(startLocation[0] - endLocation[0]) + abs(startLocation[1] - endLocation[1])
+
+# Gives the neighboring rectangles that are not walls
+def neighbors(self):
+    listOfNeighbors = []
+    for rect in rects:
+        if len(listOfNeighbors) < 4:
+            if surface.get_at((rect.x, rect.y)) != wallColor:
+                if rect.x == self.x and (rect.y == (self.y - 20) or rect.y == (self.y + 20)):
+                    listOfNeighbors.append(rect)
+                elif rect.y == self.y and (rect.x == (self.x - 20) or rect.x == (self.x + 20)):
+                    listOfNeighbors.append(rect)
+    return listOfNeighbors
+
+#f(n) = g(n) + h(n)
+#g(n) is the distance from start to n
+#h(n) is the distance from n to end estimated with manhattan distance
+#f(n) is the sum of those two
+def aStar(start, end):
+    # Dequeues the element with highest priority
+    openSet = PriorityQueue()
+    previousOnPath = {}
+    fScore = {}
+    gScore = {}
+
+    # At the beginning gScore and fScore are infinite for all rectangles
+    for rect in rects:
+        gScore[tuple(rect)] = float('inf')
+
+    for rect in rects:
+        fScore[tuple(rect)] = float('inf')
+
+    # Starting point's gScore is set to 0 and fScore to the distance between start and end
+    gScore[tuple(start)] = 0
+    fScore[tuple(start)] = h((start.x, start.y), (end.x, end.y))
+
+    # startRect and its fScore are added to the open set
+    openSet.put((fScore[tuple(start)], start))
+
+    # Created for keeping track which rectangles are in the open set
+    rectsInOpenSet = [start]
+
+    # Loop for finding the previousOnPath
+    # Loop runs until all rectangles are considered or path is found
+    while not openSet.empty():
+        for event in pg.event.get():
+            if event.type == pg.QUIT:
+                pg.quit()
+
+        # Removes the rectangle with smallest fScore from the priority queue and makes it current
+        current = openSet.get()[1]
+
+        # If current is targetRect, the previousOnPath has been found and will be drawn
+        if current == end:
+            drawPath(previousOnPath, current)
+            pg.draw.rect(surface, startColor, startRect)
+            return
+
+        # possible gScore of n's neighbors is set to g(n) + 1, as we move one rect further from startRect
+        for neighbor in neighbors(current):
+            possiblegScore = gScore[tuple(current)] + 1
+
+            # If n's neighbor's gScore has not been set earlier it is infinite and possible gScore is smaller
+            # If n's neighbor was investigated before n, its gScore is smaller and remains
+            if possiblegScore < gScore[tuple(neighbor)]:
+                previousOnPath[tuple(neighbor)] = current
+                gScore[tuple(neighbor)] = possiblegScore
+                fScore[tuple(neighbor)] = possiblegScore + h((neighbor.x, neighbor.y), (end.x, end.y))
+                # If neighbor was not in the open set it's put there and border is drawn there
+                if tuple(neighbor) not in rectsInOpenSet:
+                    openSet.put((fScore[tuple(neighbor)], neighbor))
+                    rectsInOpenSet.append(neighbor)
+                    if neighbor != targetRect:
+                        pg.draw.rect(surface, searchBorderColor, neighbor)
+                    draw(surface)
+
+            if current != startRect:
+                pg.draw.rect(surface, searchInnerColor, current)
+    return None
+
+def main():
+
+    surface.fill(fillColor)
+    drawGrid()
+
+    running = True
+
+    #main loop
+    while running:
+        # The surface is constantly drawn
+        draw(surface)
+        for event in pg.event.get():
+            if event.type == pg.QUIT:
+                running = False
+            # Start and target can be set buy pressing keys
+            elif event.type == pg.KEYDOWN:
+                if event.key == pg.K_s:
+                    setStart()
+                elif event.key == pg.K_t:
+                    setTarget()
+
+            # If the mouse is click on the buttons, it launches a function
+            elif pg.mouse.get_pressed():
+                    drawWalls()
+                    if pg.mouse.get_pressed()[0] == True:
+                        if clearWallsButton.collidepoint(pg.mouse.get_pos()):
+                            clearWalls()
+                        elif clearPathButton.collidepoint(pg.mouse.get_pos()):
+                            clearPath()
+                        elif clearAllButton.collidepoint(pg.mouse.get_pos()):
+                            clearAll()
+                        elif startButton.collidepoint(pg.mouse.get_pos()):
+                            if startRect != None and targetRect != None:
+                                clearPath()
+                                aStar(startRect, targetRect)
+main()

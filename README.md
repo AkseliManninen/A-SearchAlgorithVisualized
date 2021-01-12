@@ -8,5 +8,7 @@ g(n) is the distance from start to n location and h(n) is the distance from n lo
 
 At the beginning, distance from start location's neighbors to target location is estimated with A* search algorithm. The neighboring location where f(n) is the smallest is selected and then f(n) is calculated for its neigbors. This is repeated until the target location is reached.
 
+UI let's user to add obstacles and select start and target locations
+
 The code file has comments to help to understand it.
 

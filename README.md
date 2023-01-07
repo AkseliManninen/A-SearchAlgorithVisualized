@@ -1,4 +1,4 @@
-Reguirements - pygame 
+## Project description
 
 The project visualizes how A* search algorithm finds the shortest path from starting location to target location. 
 
@@ -12,3 +12,6 @@ UI let's user to add obstacles and select start and target locations
 
 The code file has comments to help to understand it.
 
+## Requirements
+
+Reguirements - pygame library
